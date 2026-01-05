@@ -3,10 +3,12 @@ const memberService = require('../services/memberService');
 class MemberController {
   static async getAllMembers(req, res) {
     try {
-      const { search, maritalStatus } = req.query;
+      const { search, maritalStatus, minAge, maxAge } = req.query;
       const filters = {};
       if (search) filters.search = search;
       if (maritalStatus) filters.maritalStatus = maritalStatus;
+      if (minAge !== undefined) filters.minAge = minAge;
+      if (maxAge !== undefined) filters.maxAge = maxAge;
 
       const members = await memberService.getAllMembers(filters);
       res.json({ data: members });
@@ -63,6 +65,15 @@ class MemberController {
       } else {
         res.json({ message: 'Member deleted successfully' });
       }
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async getStats(req, res) {
+    try {
+      const stats = await memberService.getStats();
+      res.json({ data: stats });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

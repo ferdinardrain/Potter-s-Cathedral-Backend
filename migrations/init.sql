@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS members (
   updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Add indexes for better performance on common filters
+CREATE INDEX idx_maritalStatus ON members(maritalStatus);
+CREATE INDEX idx_age ON members(age);
+CREATE INDEX idx_fullName ON members(fullName);
+
 -- Optional: Insert sample data (uncomment if needed)
 -- INSERT INTO members (fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar) VALUES
 -- ('John Doe', 30, '1994-01-01', 'Accra', '5.6037,-0.1870', '+233123456789', '+233987654321', 'Ghanaian', 'Married', '2023-01-01', 'avatars/john.jpg');

@@ -3,6 +3,7 @@ const router = express.Router();
 const memberController = require('../controllers/memberController');
 
 // Routes for members
+router.get('/stats', memberController.getStats);
 router.get('/', memberController.getAllMembers);
 router.get('/:id', memberController.getMemberById);
 router.post('/', memberController.createMember);

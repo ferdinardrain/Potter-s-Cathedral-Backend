@@ -25,7 +25,7 @@ class Member {
     let query = 'SELECT * FROM members';
     const params = [];
 
-    if (filters.search || filters.maritalStatus) {
+    if (filters.search || filters.maritalStatus || filters.minAge !== undefined || filters.maxAge !== undefined) {
       query += ' WHERE';
       const conditions = [];
       if (filters.search) {
@@ -35,6 +35,14 @@ class Member {
       if (filters.maritalStatus) {
         conditions.push('maritalStatus = ?');
         params.push(filters.maritalStatus);
+      }
+      if (filters.minAge !== undefined && filters.minAge !== '') {
+        conditions.push('age >= ?');
+        params.push(filters.minAge);
+      }
+      if (filters.maxAge !== undefined && filters.maxAge !== '') {
+        conditions.push('age <= ?');
+        params.push(filters.maxAge);
       }
       query += ' ' + conditions.join(' AND ');
     }
@@ -90,6 +98,34 @@ class Member {
     try {
       const [result] = await pool.execute(query, [id]);
       return result.affectedRows > 0;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getStats() {
+    const query = `
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN age <= 18 THEN 1 ELSE 0 END) as kids,
+        SUM(CASE WHEN age > 18 THEN 1 ELSE 0 END) as adults,
+        SUM(CASE WHEN LOWER(maritalStatus) = 'single' THEN 1 ELSE 0 END) as singles,
+        SUM(CASE WHEN LOWER(maritalStatus) = 'married' THEN 1 ELSE 0 END) as married,
+        SUM(CASE WHEN LOWER(maritalStatus) = 'widowed' THEN 1 ELSE 0 END) as widows
+      FROM members
+    `;
+    try {
+      const [rows] = await pool.execute(query);
+      const stats = rows[0];
+      // Convert to numbers as they might return as strings from some DB drivers
+      return {
+        total: Number(stats.total) || 0,
+        kids: Number(stats.kids) || 0,
+        adults: Number(stats.adults) || 0,
+        singles: Number(stats.singles) || 0,
+        married: Number(stats.married) || 0,
+        widows: Number(stats.widows) || 0,
+      };
     } catch (error) {
       throw error;
     }

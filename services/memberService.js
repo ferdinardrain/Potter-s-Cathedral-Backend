@@ -48,6 +48,14 @@ class MemberService {
       throw new Error(`Failed to delete member: ${error.message}`);
     }
   }
+
+  static async getStats() {
+    try {
+      return await Member.getStats();
+    } catch (error) {
+      throw new Error(`Failed to fetch stats: ${error.message}`);
+    }
+  }
 }
 
 module.exports = MemberService;
