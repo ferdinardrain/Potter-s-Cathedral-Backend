@@ -12,7 +12,31 @@ const path = require('path');
 
 // Middleware
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || '*', // Allow frontend URL from env variable
+  origin: (origin, callback) => {
+    const frontendUrl = process.env.FRONTEND_URL || '*';
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if it matches exactly
+    if (frontendUrl === '*' || origin === frontendUrl) {
+      return callback(null, true);
+    }
+
+    // Robust check: If env var is "domain.com", match "https://domain.com"
+    if (frontendUrl.indexOf('http') === -1) {
+      if (origin === `https://${frontendUrl}` || origin === `http://${frontendUrl}`) {
+        return callback(null, true);
+      }
+    }
+
+    // If we get here, it might be a valid CORS error, but for debugging let's be permissive if likely match
+    if (origin.includes(frontendUrl)) {
+      return callback(null, true);
+    }
+
+    callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
