@@ -10,17 +10,22 @@ async function seedAdmin() {
 
         // Execute create_admins_table.sql
         const createAdminsSql = fs.readFileSync(path.join(__dirname, 'migrations', 'create_admins_table.sql'), 'utf8');
-        await pool.execute(createAdminsSql);
+        await pool.query(createAdminsSql);
 
         // Execute create_password_resets_table.sql
         const createResetsSql = fs.readFileSync(path.join(__dirname, 'migrations', 'create_password_resets_table.sql'), 'utf8');
-        await pool.execute(createResetsSql);
+        await pool.query(createResetsSql);
+
+        // Execute init.sql (Members tables) - CRITICAL FIX
+        const initSql = fs.readFileSync(path.join(__dirname, 'migrations', 'init.sql'), 'utf8');
+        await pool.query(initSql);
 
         console.log('Migrations completed successfully.');
         console.log('Seeding default admin user...');
 
         // Check if admin already exists
-        const [existingAdmins] = await pool.execute('SELECT * FROM admins WHERE username = ?', ['admin']);
+        const result = await pool.query('SELECT * FROM admins WHERE username = $1', ['admin']);
+        const existingAdmins = result.rows;
 
         if (existingAdmins.length > 0) {
             console.log('Admin user already exists. Skipping seed.');
@@ -32,11 +37,11 @@ async function seedAdmin() {
 
         // Insert admin user
         const query = `
-      INSERT INTO admins (username, password, email, role, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, NOW(), NOW())
+      INSERT INTO admins (username, password, email, role, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
     `;
 
-        await pool.execute(query, ['admin', hashedPassword, 'admin@porters.com', 'admin']);
+        await pool.query(query, ['admin', hashedPassword, 'admin@porters.com', 'admin']);
 
         console.log('✅ Default admin user created successfully!');
         console.log('Username: admin');

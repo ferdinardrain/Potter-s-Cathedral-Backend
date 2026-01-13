@@ -8,14 +8,15 @@ class Member {
     } = memberData;
 
     const query = `
-      INSERT INTO members (fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      INSERT INTO members ("fullName", age, dob, residence, "gpsAddress", "phoneNumber", "altPhoneNumber", nationality, "maritalStatus", "joiningDate", avatar, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      RETURNING id
     `;
     const params = [fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar];
 
     try {
-      const [result] = await pool.execute(query, params);
-      return { id: result.insertId, ...memberData };
+      const result = await pool.query(query, params);
+      return { id: result.rows[0].id, ...memberData };
     } catch (error) {
       throw error;
     }
@@ -28,42 +29,49 @@ class Member {
     const params = [];
     const conditions = [];
 
+    // Parameter counter for Postgres $1, $2...
+    let paramCount = 1;
+
     if (filters.search) {
-      conditions.push('(fullName LIKE ? OR phoneNumber LIKE ? OR residence LIKE ?)');
+      conditions.push(`("fullName" ILIKE $${paramCount} OR "phoneNumber" ILIKE $${paramCount + 1} OR residence ILIKE $${paramCount + 2})`);
       params.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`);
+      paramCount += 3;
     }
     if (filters.maritalStatus) {
-      conditions.push('maritalStatus = ?');
+      conditions.push('"maritalStatus" = $' + paramCount);
       params.push(filters.maritalStatus);
+      paramCount++;
     }
     if (filters.minAge !== undefined && filters.minAge !== '') {
-      conditions.push('age >= ?');
+      conditions.push('age >= $' + paramCount);
       params.push(filters.minAge);
+      paramCount++;
     }
     if (filters.maxAge !== undefined && filters.maxAge !== '') {
-      conditions.push('age <= ?');
+      conditions.push('age <= $' + paramCount);
       params.push(filters.maxAge);
+      paramCount++;
     }
 
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY ' + (isTrash ? 'deletedAt DESC' : 'createdAt DESC');
+    query += ' ORDER BY ' + (isTrash ? '"deletedAt" DESC' : '"createdAt" DESC');
 
     try {
-      const [rows] = await pool.execute(query, params);
-      return rows;
+      const result = await pool.query(query, params);
+      return result.rows;
     } catch (error) {
       throw error;
     }
   }
 
   static async findById(id) {
-    const query = 'SELECT * FROM members WHERE id = ?';
+    const query = 'SELECT * FROM members WHERE id = $1';
     try {
-      const [rows] = await pool.execute(query, [id]);
-      return rows[0] || null;
+      const result = await pool.query(query, [id]);
+      return result.rows[0] || null;
     } catch (error) {
       throw error;
     }
@@ -77,16 +85,16 @@ class Member {
 
     const query = `
       UPDATE members SET
-        fullName = ?, age = ?, dob = ?, residence = ?, gpsAddress = ?, phoneNumber = ?,
-        altPhoneNumber = ?, nationality = ?, maritalStatus = ?, joiningDate = ?, avatar = ?,
-        updatedAt = NOW()
-      WHERE id = ?
+        "fullName" = $1, age = $2, dob = $3, residence = $4, "gpsAddress" = $5, "phoneNumber" = $6,
+        "altPhoneNumber" = $7, nationality = $8, "maritalStatus" = $9, "joiningDate" = $10, avatar = $11,
+        "updatedAt" = NOW()
+      WHERE id = $12
     `;
     const params = [fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, id];
 
     try {
-      const [result] = await pool.execute(query, params);
-      if (result.affectedRows === 0) {
+      const result = await pool.query(query, params);
+      if (result.rowCount === 0) {
         return null;
       }
       return { id, ...memberData };
@@ -100,81 +108,80 @@ class Member {
     const member = await this.findById(id);
     if (!member) return false;
 
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
-      await connection.beginTransaction();
+      await client.query('BEGIN');
 
       // 2. Insert into trash_members
       const insertQuery = `
-        INSERT INTO trash_members (id, fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, createdAt, updatedAt, deletedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO trash_members (id, "fullName", age, dob, residence, "gpsAddress", "phoneNumber", "altPhoneNumber", nationality, "maritalStatus", "joiningDate", avatar, "createdAt", "updatedAt", "deletedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
       `;
       const insertParams = [
         member.id, member.fullName, member.age, member.dob, member.residence,
         member.gpsAddress, member.phoneNumber, member.altPhoneNumber, member.nationality,
         member.maritalStatus, member.joiningDate, member.avatar, member.createdAt, member.updatedAt
       ];
-      await connection.execute(insertQuery, insertParams);
+      await client.query(insertQuery, insertParams);
 
       // 3. Delete from members
-      await connection.execute('DELETE FROM members WHERE id = ?', [id]);
+      await client.query('DELETE FROM members WHERE id = $1', [id]);
 
-      await connection.commit();
+      await client.query('COMMIT');
       return true;
     } catch (error) {
-      await connection.rollback();
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      connection.release();
+      client.release();
     }
   }
 
   static async restore(id) {
-    const [rows] = await pool.execute('SELECT * FROM trash_members WHERE id = ?', [id]);
-    const member = rows[0];
+    const result = await pool.query('SELECT * FROM trash_members WHERE id = $1', [id]);
+    const member = result.rows[0];
     if (!member) return false;
 
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
-      await connection.beginTransaction();
+      await client.query('BEGIN');
 
       // 1. Check if ID already exists in members
-      const [existing] = await connection.execute('SELECT id FROM members WHERE id = ?', [member.id]);
-      if (existing.length > 0) {
-        // ID exists, let's update instead of insert to avoid crash, or just delete the existing one
-        await connection.execute('DELETE FROM members WHERE id = ?', [member.id]);
+      const existing = await client.query('SELECT id FROM members WHERE id = $1', [member.id]);
+      if (existing.rows.length > 0) {
+        await client.query('DELETE FROM members WHERE id = $1', [member.id]);
       }
 
       // 2. Insert back into members
       const insertQuery = `
-        INSERT INTO members (id, fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO members (id, "fullName", age, dob, residence, "gpsAddress", "phoneNumber", "altPhoneNumber", nationality, "maritalStatus", "joiningDate", avatar, "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `;
       const insertParams = [
         member.id, member.fullName, member.age, member.dob, member.residence,
         member.gpsAddress, member.phoneNumber, member.altPhoneNumber, member.nationality,
         member.maritalStatus, member.joiningDate, member.avatar, member.createdAt, member.updatedAt
       ];
-      await connection.execute(insertQuery, insertParams);
+      await client.query(insertQuery, insertParams);
 
       // 3. Delete from trash_members
-      await connection.execute('DELETE FROM trash_members WHERE id = ?', [id]);
+      await client.query('DELETE FROM trash_members WHERE id = $1', [id]);
 
-      await connection.commit();
+      await client.query('COMMIT');
       return true;
     } catch (error) {
-      await connection.rollback();
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      connection.release();
+      client.release();
     }
   }
 
   static async permanentDelete(id) {
-    const query = 'DELETE FROM trash_members WHERE id = ?';
+    const query = 'DELETE FROM trash_members WHERE id = $1';
     try {
-      const [result] = await pool.execute(query, [id]);
-      return result.affectedRows > 0;
+      const result = await pool.query(query, [id]);
+      return result.rowCount > 0;
     } catch (error) {
       throw error;
     }
@@ -186,14 +193,14 @@ class Member {
         COUNT(*) as total,
         SUM(CASE WHEN age <= 18 THEN 1 ELSE 0 END) as kids,
         SUM(CASE WHEN age > 18 THEN 1 ELSE 0 END) as adults,
-        SUM(CASE WHEN LOWER(maritalStatus) = 'single' THEN 1 ELSE 0 END) as singles,
-        SUM(CASE WHEN LOWER(maritalStatus) = 'married' THEN 1 ELSE 0 END) as married,
-        SUM(CASE WHEN LOWER(maritalStatus) = 'widowed' THEN 1 ELSE 0 END) as widows
+        SUM(CASE WHEN LOWER("maritalStatus") = 'single' THEN 1 ELSE 0 END) as singles,
+        SUM(CASE WHEN LOWER("maritalStatus") = 'married' THEN 1 ELSE 0 END) as married,
+        SUM(CASE WHEN LOWER("maritalStatus") = 'widowed' THEN 1 ELSE 0 END) as widows
       FROM members
     `;
     try {
-      const [rows] = await pool.execute(query);
-      const stats = rows[0];
+      const result = await pool.query(query);
+      const stats = result.rows[0];
       return {
         total: Number(stats.total) || 0,
         kids: Number(stats.kids) || 0,
