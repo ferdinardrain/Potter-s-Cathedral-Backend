@@ -62,6 +62,7 @@ class AuthService {
                 user: userWithoutPassword
             };
         } catch (error) {
+            console.error('Inner Login Error:', error); // Log the real error (db connection, sql syntax, etc)
             throw new Error(`Login failed: ${error.message}`);
         }
     }
