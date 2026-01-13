@@ -21,7 +21,12 @@ class AuthController {
                 user: result.user
             });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error('Login Error:', error); // Log the full error to server console
+            res.status(500).json({
+                error: 'Internal Server Error',
+                details: error.message, // Send error details to client for debugging
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
         }
     }
 
