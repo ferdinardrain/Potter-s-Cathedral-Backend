@@ -22,6 +22,15 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Potter\'s Cathedral Backend API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/members', memberRoutes);
