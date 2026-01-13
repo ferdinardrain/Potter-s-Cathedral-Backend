@@ -22,32 +22,34 @@ class Member {
   }
 
   static async findAll(filters = {}) {
-    let query = 'SELECT * FROM members';
+    const isTrash = filters.trash === 'true' || filters.trash === true;
+    const table = isTrash ? 'trash_members' : 'members';
+    let query = `SELECT * FROM ${table}`;
     const params = [];
+    const conditions = [];
 
-    if (filters.search || filters.maritalStatus || filters.minAge !== undefined || filters.maxAge !== undefined) {
-      query += ' WHERE';
-      const conditions = [];
-      if (filters.search) {
-        conditions.push('(fullName LIKE ? OR phoneNumber LIKE ? OR residence LIKE ?)');
-        params.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`);
-      }
-      if (filters.maritalStatus) {
-        conditions.push('maritalStatus = ?');
-        params.push(filters.maritalStatus);
-      }
-      if (filters.minAge !== undefined && filters.minAge !== '') {
-        conditions.push('age >= ?');
-        params.push(filters.minAge);
-      }
-      if (filters.maxAge !== undefined && filters.maxAge !== '') {
-        conditions.push('age <= ?');
-        params.push(filters.maxAge);
-      }
-      query += ' ' + conditions.join(' AND ');
+    if (filters.search) {
+      conditions.push('(fullName LIKE ? OR phoneNumber LIKE ? OR residence LIKE ?)');
+      params.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`);
+    }
+    if (filters.maritalStatus) {
+      conditions.push('maritalStatus = ?');
+      params.push(filters.maritalStatus);
+    }
+    if (filters.minAge !== undefined && filters.minAge !== '') {
+      conditions.push('age >= ?');
+      params.push(filters.minAge);
+    }
+    if (filters.maxAge !== undefined && filters.maxAge !== '') {
+      conditions.push('age <= ?');
+      params.push(filters.maxAge);
     }
 
-    query += ' ORDER BY createdAt DESC';
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY ' + (isTrash ? 'deletedAt DESC' : 'createdAt DESC');
 
     try {
       const [rows] = await pool.execute(query, params);
@@ -94,7 +96,82 @@ class Member {
   }
 
   static async delete(id) {
-    const query = 'DELETE FROM members WHERE id = ?';
+    // 1. Get member
+    const member = await this.findById(id);
+    if (!member) return false;
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 2. Insert into trash_members
+      const insertQuery = `
+        INSERT INTO trash_members (id, fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, createdAt, updatedAt, deletedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+      const insertParams = [
+        member.id, member.fullName, member.age, member.dob, member.residence,
+        member.gpsAddress, member.phoneNumber, member.altPhoneNumber, member.nationality,
+        member.maritalStatus, member.joiningDate, member.avatar, member.createdAt, member.updatedAt
+      ];
+      await connection.execute(insertQuery, insertParams);
+
+      // 3. Delete from members
+      await connection.execute('DELETE FROM members WHERE id = ?', [id]);
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  static async restore(id) {
+    const [rows] = await pool.execute('SELECT * FROM trash_members WHERE id = ?', [id]);
+    const member = rows[0];
+    if (!member) return false;
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 1. Check if ID already exists in members
+      const [existing] = await connection.execute('SELECT id FROM members WHERE id = ?', [member.id]);
+      if (existing.length > 0) {
+        // ID exists, let's update instead of insert to avoid crash, or just delete the existing one
+        await connection.execute('DELETE FROM members WHERE id = ?', [member.id]);
+      }
+
+      // 2. Insert back into members
+      const insertQuery = `
+        INSERT INTO members (id, fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const insertParams = [
+        member.id, member.fullName, member.age, member.dob, member.residence,
+        member.gpsAddress, member.phoneNumber, member.altPhoneNumber, member.nationality,
+        member.maritalStatus, member.joiningDate, member.avatar, member.createdAt, member.updatedAt
+      ];
+      await connection.execute(insertQuery, insertParams);
+
+      // 3. Delete from trash_members
+      await connection.execute('DELETE FROM trash_members WHERE id = ?', [id]);
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  static async permanentDelete(id) {
+    const query = 'DELETE FROM trash_members WHERE id = ?';
     try {
       const [result] = await pool.execute(query, [id]);
       return result.affectedRows > 0;
@@ -117,7 +194,6 @@ class Member {
     try {
       const [rows] = await pool.execute(query);
       const stats = rows[0];
-      // Convert to numbers as they might return as strings from some DB drivers
       return {
         total: Number(stats.total) || 0,
         kids: Number(stats.kids) || 0,

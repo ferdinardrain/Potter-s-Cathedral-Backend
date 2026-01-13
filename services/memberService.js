@@ -49,6 +49,24 @@ class MemberService {
     }
   }
 
+  static async restoreMember(id) {
+    try {
+      const restored = await Member.restore(id);
+      return restored;
+    } catch (error) {
+      throw new Error(`Failed to restore member: ${error.message}`);
+    }
+  }
+
+  static async permanentlyDeleteMember(id) {
+    try {
+      const deleted = await Member.permanentDelete(id);
+      return deleted;
+    } catch (error) {
+      throw new Error(`Failed to permanently delete member: ${error.message}`);
+    }
+  }
+
   static async getStats() {
     try {
       return await Member.getStats();

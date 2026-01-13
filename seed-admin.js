@@ -1,3 +1,4 @@
+require('dotenv').config();
 const pool = require('./config/database');
 const AuthService = require('./services/authService');
 

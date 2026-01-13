@@ -14,9 +14,28 @@ CREATE TABLE IF NOT EXISTS members (
   nationality VARCHAR(100),
   maritalStatus VARCHAR(50),
   joiningDate DATE,
-  avatar VARCHAR(255),
+  avatar LONGTEXT,
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create the trash_members table (same structure)
+CREATE TABLE IF NOT EXISTS trash_members (
+  id INT PRIMARY KEY,
+  fullName VARCHAR(255) NOT NULL,
+  age INT,
+  dob DATE,
+  residence VARCHAR(255),
+  gpsAddress VARCHAR(255),
+  phoneNumber VARCHAR(20),
+  altPhoneNumber VARCHAR(20),
+  nationality VARCHAR(100),
+  maritalStatus VARCHAR(50),
+  joiningDate DATE,
+  avatar LONGTEXT,
+  deletedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  createdAt TIMESTAMP NULL DEFAULT NULL,
+  updatedAt TIMESTAMP NULL DEFAULT NULL
 );
 
 -- Add indexes for better performance on common filters

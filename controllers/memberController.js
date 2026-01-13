@@ -3,12 +3,13 @@ const memberService = require('../services/memberService');
 class MemberController {
   static async getAllMembers(req, res) {
     try {
-      const { search, maritalStatus, minAge, maxAge } = req.query;
+      const { search, maritalStatus, minAge, maxAge, trash } = req.query;
       const filters = {};
       if (search) filters.search = search;
       if (maritalStatus) filters.maritalStatus = maritalStatus;
       if (minAge !== undefined) filters.minAge = minAge;
       if (maxAge !== undefined) filters.maxAge = maxAge;
+      if (trash !== undefined) filters.trash = trash;
 
       const members = await memberService.getAllMembers(filters);
       res.json({ data: members });
@@ -63,7 +64,35 @@ class MemberController {
       if (!deleted) {
         res.status(404).json({ error: 'Member not found' });
       } else {
-        res.json({ message: 'Member deleted successfully' });
+        res.json({ message: 'Member moved to trash' });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async restoreMember(req, res) {
+    try {
+      const { id } = req.params;
+      const restored = await memberService.restoreMember(id);
+      if (!restored) {
+        res.status(404).json({ error: 'Member not found' });
+      } else {
+        res.json({ message: 'Member restored successfully' });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async permanentlyDeleteMember(req, res) {
+    try {
+      const { id } = req.params;
+      const deleted = await memberService.permanentlyDeleteMember(id);
+      if (!deleted) {
+        res.status(404).json({ error: 'Member not found' });
+      } else {
+        res.json({ message: 'Member permanently deleted' });
       }
     } catch (error) {
       res.status(500).json({ error: error.message });
