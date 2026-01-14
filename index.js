@@ -47,9 +47,11 @@ app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
 // Health check route
 app.get('/', (req, res) => {
+  console.log('Health check accessed - Version v1.0.3 (10MB Limit)');
   res.json({
     status: 'ok',
     message: 'Potter\'s Cathedral Backend API is running',
+    version: 'v1.0.3-payload-fix',
     timestamp: new Date().toISOString()
   });
 });
