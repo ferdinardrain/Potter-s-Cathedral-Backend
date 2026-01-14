@@ -123,6 +123,8 @@ class Member {
       return false;
     }
 
+    console.log(`[Member.delete] Found member - ID: ${member.id}, Name: "${member.fullName}"`);
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
