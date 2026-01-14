@@ -154,13 +154,15 @@ class Member {
         member.gpsAddress, member.phoneNumber, member.altPhoneNumber, member.nationality,
         member.maritalStatus, member.joiningDate, member.avatar, member.createdAt, member.updatedAt
       ];
-      await client.query(insertQuery, insertParams);
+      const insertResult = await client.query(insertQuery, insertParams);
+      console.log(`[Member.delete] Inserted into trash_members, rows affected: ${insertResult.rowCount}`);
 
       // 3. Delete from members
       const deleteResult = await client.query('DELETE FROM members WHERE id = $1', [memberId]);
       console.log(`[Member.delete] Deleted from members table, rows affected: ${deleteResult.rowCount}`);
 
       await client.query('COMMIT');
+      console.log(`[Member.delete] Transaction committed successfully for ID ${memberId}`);
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
