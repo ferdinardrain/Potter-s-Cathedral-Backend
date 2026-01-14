@@ -2,7 +2,7 @@ const pool = require('../config/database');
 
 class Admin {
     static async findByUsername(username) {
-        const query = 'SELECT * FROM admins WHERE username = $1';
+        const query = 'SELECT * FROM admins WHERE LOWER(username) = LOWER($1)';
         try {
             const result = await pool.query(query, [username]);
             return result.rows[0] || null;
