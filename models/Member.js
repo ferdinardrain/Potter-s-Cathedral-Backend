@@ -19,8 +19,11 @@ class Member {
 
     try {
       const result = await pool.query(query, params);
-      return { id: result.rows[0].id, ...memberData };
+      const newId = result.rows[0].id;
+      console.log(`[Member.create] SUCCESS - Table: members, ID: ${newId}, Name: "${fullName}"`);
+      return { id: newId, ...memberData };
     } catch (error) {
+      console.error(`[Member.create] ERROR - Name: "${fullName}", Error:`, error.message);
       throw error;
     }
   }
@@ -104,10 +107,13 @@ class Member {
     try {
       const result = await pool.query(query, params);
       if (result.rowCount === 0) {
+        console.log(`[Member.update] FAILED - Member ID ${memberId} NOT FOUND`);
         return null;
       }
+      console.log(`[Member.update] SUCCESS - Member ID ${memberId}, Name: "${fullName}"`);
       return { id, ...memberData };
     } catch (error) {
+      console.error(`[Member.update] ERROR - Member ID ${memberId}, Error:`, error.message);
       throw error;
     }
   }
@@ -204,9 +210,11 @@ class Member {
       await client.query('DELETE FROM trash_members WHERE id = $1', [id]);
 
       await client.query('COMMIT');
+      console.log(`[Member.restore] SUCCESS - Restored ID ${id} to members table`);
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error(`[Member.restore] ERROR - ID ${id}, Error:`, error.message);
       throw error;
     } finally {
       client.release();
