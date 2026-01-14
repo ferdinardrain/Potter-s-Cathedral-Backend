@@ -68,9 +68,10 @@ class Member {
   }
 
   static async findById(id) {
+    const memberId = parseInt(id);
     const query = 'SELECT * FROM members WHERE id = $1';
     try {
-      const result = await pool.query(query, [id]);
+      const result = await pool.query(query, [memberId]);
       return result.rows[0] || null;
     } catch (error) {
       throw error;
@@ -83,6 +84,7 @@ class Member {
       nationality, maritalStatus, joiningDate, avatar
     } = memberData;
 
+    const memberId = parseInt(id);
     const query = `
       UPDATE members SET
         "fullName" = $1, age = $2, dob = $3, residence = $4, "gpsAddress" = $5, "phoneNumber" = $6,
@@ -90,7 +92,7 @@ class Member {
         "updatedAt" = NOW()
       WHERE id = $12
     `;
-    const params = [fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, id];
+    const params = [fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, memberId];
 
     try {
       const result = await pool.query(query, params);
