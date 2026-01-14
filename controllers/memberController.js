@@ -88,13 +88,17 @@ class MemberController {
   static async permanentlyDeleteMember(req, res) {
     try {
       const { id } = req.params;
+      console.log(`[Controller] Permanent delete request for ID: ${id}`);
       const deleted = await memberService.permanentlyDeleteMember(id);
       if (!deleted) {
-        res.status(404).json({ error: 'Member not found' });
+        console.log(`[Controller] Member ID ${id} not found in trash`);
+        res.status(404).json({ error: 'Member not found in trash' });
       } else {
+        console.log(`[Controller] Member ID ${id} permanently deleted successfully`);
         res.json({ message: 'Member permanently deleted' });
       }
     } catch (error) {
+      console.error(`[Controller] Permanent delete error:`, error);
       res.status(500).json({ error: error.message });
     }
   }
