@@ -7,12 +7,15 @@ class Member {
       nationality, maritalStatus, joiningDate, avatar
     } = memberData;
 
+    // Sanitize age: convert empty string to null for PostgreSQL integer column
+    const sanitizedAge = age === '' || age === null || age === undefined ? null : parseInt(age);
+
     const query = `
       INSERT INTO members ("fullName", age, dob, residence, "gpsAddress", "phoneNumber", "altPhoneNumber", nationality, "maritalStatus", "joiningDate", avatar, "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING id
     `;
-    const params = [fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar];
+    const params = [fullName, sanitizedAge, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar];
 
     try {
       const result = await pool.query(query, params);
@@ -85,6 +88,10 @@ class Member {
     } = memberData;
 
     const memberId = parseInt(id);
+
+    // Sanitize age: convert empty string to null for PostgreSQL integer column
+    const sanitizedAge = age === '' || age === null || age === undefined ? null : parseInt(age);
+
     const query = `
       UPDATE members SET
         "fullName" = $1, age = $2, dob = $3, residence = $4, "gpsAddress" = $5, "phoneNumber" = $6,
@@ -92,7 +99,7 @@ class Member {
         "updatedAt" = NOW()
       WHERE id = $12
     `;
-    const params = [fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, memberId];
+    const params = [fullName, sanitizedAge, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar, memberId];
 
     try {
       const result = await pool.query(query, params);
