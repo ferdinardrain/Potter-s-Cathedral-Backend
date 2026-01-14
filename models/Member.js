@@ -129,11 +129,25 @@ class Member {
     try {
       await client.query('BEGIN');
 
-      // 2. Insert into trash_members (UPSERT style to avoid PK conflicts)
+      // 2. Insert into trash_members (UPSERT to replace any existing record with same ID)
       const insertQuery = `
         INSERT INTO trash_members (id, "fullName", age, dob, residence, "gpsAddress", "phoneNumber", "altPhoneNumber", nationality, "maritalStatus", "joiningDate", avatar, "createdAt", "updatedAt", "deletedAt")
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
-        ON CONFLICT (id) DO UPDATE SET "deletedAt" = NOW()
+        ON CONFLICT (id) DO UPDATE SET
+          "fullName" = EXCLUDED."fullName",
+          age = EXCLUDED.age,
+          dob = EXCLUDED.dob,
+          residence = EXCLUDED.residence,
+          "gpsAddress" = EXCLUDED."gpsAddress",
+          "phoneNumber" = EXCLUDED."phoneNumber",
+          "altPhoneNumber" = EXCLUDED."altPhoneNumber",
+          nationality = EXCLUDED.nationality,
+          "maritalStatus" = EXCLUDED."maritalStatus",
+          "joiningDate" = EXCLUDED."joiningDate",
+          avatar = EXCLUDED.avatar,
+          "createdAt" = EXCLUDED."createdAt",
+          "updatedAt" = EXCLUDED."updatedAt",
+          "deletedAt" = NOW()
       `;
       const insertParams = [
         member.id, member.fullName, member.age, member.dob, member.residence,
