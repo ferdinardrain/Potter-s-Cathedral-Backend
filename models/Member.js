@@ -104,18 +104,25 @@ class Member {
   }
 
   static async delete(id) {
+    const memberId = parseInt(id);
+    console.log(`[Member.delete] Moving member ID ${memberId} to trash`);
+
     // 1. Get member
-    const member = await this.findById(id);
-    if (!member) return false;
+    const member = await this.findById(memberId);
+    if (!member) {
+      console.log(`[Member.delete] Member ID ${memberId} not found in active members`);
+      return false;
+    }
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // 2. Insert into trash_members
+      // 2. Insert into trash_members (UPSERT style to avoid PK conflicts)
       const insertQuery = `
         INSERT INTO trash_members (id, "fullName", age, dob, residence, "gpsAddress", "phoneNumber", "altPhoneNumber", nationality, "maritalStatus", "joiningDate", avatar, "createdAt", "updatedAt", "deletedAt")
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+        ON CONFLICT (id) DO UPDATE SET "deletedAt" = NOW()
       `;
       const insertParams = [
         member.id, member.fullName, member.age, member.dob, member.residence,
@@ -125,12 +132,14 @@ class Member {
       await client.query(insertQuery, insertParams);
 
       // 3. Delete from members
-      await client.query('DELETE FROM members WHERE id = $1', [id]);
+      const deleteResult = await client.query('DELETE FROM members WHERE id = $1', [memberId]);
+      console.log(`[Member.delete] Deleted from members table, rows affected: ${deleteResult.rowCount}`);
 
       await client.query('COMMIT');
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error(`[Member.delete] ERROR moving member to trash:`, error);
       throw error;
     } finally {
       client.release();
@@ -178,11 +187,15 @@ class Member {
   }
 
   static async permanentDelete(id) {
+    const memberId = parseInt(id);
+    console.log(`[Member.permanentDelete] Deleting member ID ${memberId} from trash`);
     const query = 'DELETE FROM trash_members WHERE id = $1';
     try {
-      const result = await pool.query(query, [id]);
+      const result = await pool.query(query, [memberId]);
+      console.log(`[Member.permanentDelete] Deleted from trash table, rows affected: ${result.rowCount}`);
       return result.rowCount > 0;
     } catch (error) {
+      console.error(`[Member.permanentDelete] ERROR deleting from trash:`, error);
       throw error;
     }
   }
