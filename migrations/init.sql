@@ -40,9 +40,9 @@ CREATE TABLE IF NOT EXISTS trash_members (
 );
 
 -- Add indexes for better performance on common filters
-CREATE INDEX idx_maritalStatus ON members("maritalStatus");
-CREATE INDEX idx_age ON members(age);
-CREATE INDEX idx_fullName ON members("fullName");
+CREATE INDEX IF NOT EXISTS idx_maritalStatus ON members("maritalStatus");
+CREATE INDEX IF NOT EXISTS idx_age ON members(age);
+CREATE INDEX IF NOT EXISTS idx_fullName ON members("fullName");
 
 -- Optional: Insert sample data (uncomment if needed)
 -- INSERT INTO members (fullName, age, dob, residence, gpsAddress, phoneNumber, altPhoneNumber, nationality, maritalStatus, joiningDate, avatar) VALUES
