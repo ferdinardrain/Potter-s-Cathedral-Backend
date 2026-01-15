@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const memberRoutes = require('./routes/members');
 const authRoutes = require('./routes/auth');
+const dbInit = require('./dbInit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -72,4 +73,6 @@ app.use('/api/members', memberRoutes);
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  // Run migrations in background so they don't block server startup/health checks
+  dbInit();
 });
